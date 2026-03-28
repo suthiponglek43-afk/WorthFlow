@@ -1,0 +1,17 @@
+{
+  "name": "WorthFlow Personal Finance",
+  "short_name": "WorthFlow",
+  "description": "Manage your net worth, budget and financial runway.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5839/5839843.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
