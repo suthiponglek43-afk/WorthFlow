@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="th">
-<head> 
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>WorthFlow - Personal Finance</title>
@@ -13,17 +13,12 @@
     
     <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
-    
     <script>window.react = window.React;</script>
-    
     <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/react-is@18.2.0/umd/react-is.production.min.js"></script>
     <script src="https://unpkg.com/recharts@2.1.12/umd/Recharts.js"></script>
-    
     <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
@@ -41,7 +36,7 @@
         const { useState, useMemo, useEffect } = React;
         const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } = window.Recharts;
 
-        // --- CONSTANTS & MOCK DATA ---
+        // --- CONSTANTS ---
         const BUDGET_GROUPS = [
             { id: 'b_food', name: 'อาหาร & เครื่องดื่ม', icon: '🍔', colorClass: 'bg-rose-500', color: '#f43f5e' },
             { id: 'b_housing', name: 'ที่อยู่อาศัย & บิล', icon: '🏠', colorClass: 'bg-blue-500', color: '#3b82f6' },
@@ -194,14 +189,9 @@
             { id: 'g12', icon: '🎯', color: 'bg-indigo-500', label: 'เป้าหมายทั่วไป' },
         ];
 
-        const initialAccounts = [
-            { id: 1, name: 'KBank (ใช้จ่าย)', balance: 45000, type: 'bank', color: 'text-green-600', bg: 'bg-green-100', logo: 'K', reservePercentage: 20 },
-            { id: 2, name: 'SCB (เงินสำรอง)', balance: 105000, type: 'bank', color: 'text-purple-600', bg: 'bg-purple-100', logo: 'S', reservePercentage: 100 },
-        ];
-
-        const initialTransactions = [
-            { id: 1, type: 'income', amount: 65000, categoryId: 'i_salary', accountId: 1, date: new Date().toISOString() },
-        ];
+        // เคลียร์ข้อมูล Mockup เริ่มต้น
+        const initialAccounts = [];
+        const initialTransactions = [];
 
         const loadState = (key, defaultValue) => {
             try { const saved = localStorage.getItem(key); if (saved) return JSON.parse(saved); } catch (e) {}
@@ -256,13 +246,39 @@
             useEffect(() => { localStorage.setItem('wf_goals', JSON.stringify(goals)); }, [goals]);
             useEffect(() => { localStorage.setItem('wf_recurrings', JSON.stringify(recurrings)); }, [recurrings]);
 
-            // PWA Install Prompt
+            // PWA Install Prompt & Manifest Setup
             useEffect(() => {
+                const metaTags = [
+                    { name: 'apple-mobile-web-app-capable', content: 'yes' },
+                    { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+                    { name: 'apple-mobile-web-app-title', content: 'WorthFlow' },
+                    { name: 'theme-color', content: '#f8fafc' }
+                ];
+                metaTags.forEach(({ name, content }) => {
+                    let tag = document.querySelector(`meta[name="${name}"]`);
+                    if (!tag) { tag = document.createElement('meta'); tag.name = name; document.head.appendChild(tag); }
+                    tag.content = content;
+                });
+
                 const handler = (e) => { 
                     e.preventDefault(); setDeferredPrompt(e); setIsInstallable(true); 
                     if (!sessionStorage.getItem('wf_install_dismissed')) setShowInstallBanner(true);
                 };
                 window.addEventListener('beforeinstallprompt', handler);
+
+                // หากรีเฟรชหน้าเว็บ อาจเกิดปัญหา cache เก่าค้าง เราเช็กว่ามีข้อมูลจริงไหม
+                const checkData = localStorage.getItem('wf_accounts');
+                if (checkData) {
+                    try {
+                        const parsedData = JSON.parse(checkData);
+                        if (Array.isArray(parsedData) && parsedData.length > 0) {
+                            setAccounts(parsedData);
+                        }
+                    } catch (e) {
+                        console.error('Error parsing data:', e);
+                    }
+                }
+
                 return () => window.removeEventListener('beforeinstallprompt', handler);
             }, []);
 
@@ -379,6 +395,10 @@
             const changeMonth = (offset) => { const newDate = new Date(selectedDate); newDate.setMonth(newDate.getMonth() + offset); setSelectedDate(newDate); };
 
             const openAddTransactionModal = () => {
+                if(accounts.length === 0) {
+                    alert('กรุณาเพิ่มบัญชีก่อนทำรายการครับ');
+                    return;
+                }
                 setTransactionType('expense'); setSelectedCategoryId('e_groceries'); setIsRecurringTx(false); setRecurringDay(new Date().getDate()); setIsAddModalOpen(true);
             };
 
@@ -461,6 +481,7 @@
 
                 const newAcc = { id: Date.now(), name, balance, type: newAccountType, color: accColor, bg: accBg, logo: accLogo, reservePercentage: finalReservePct };
                 setAccounts([...accounts, newAcc]);
+                setAccountNameInput('');
                 setIsAddAccountModalOpen(false);
             };
 
@@ -486,7 +507,7 @@
             };
 
             const handleInstall = () => { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then(() => { setDeferredPrompt(null); setIsInstallable(false); setShowInstallBanner(false); }); } };
-            const handleResetApp = () => { if (window.confirm("คุณต้องการล้างข้อมูลทั้งหมดในแอปใช่หรือไม่?")) { localStorage.clear(); window.location.reload(); } };
+            const handleResetApp = () => { if (window.confirm("การกระทำนี้จะล้างข้อมูลทั้งหมดในแอป (รายการและบัญชี) ยืนยันที่จะลบข้อมูลหรือไม่?")) { localStorage.clear(); window.location.reload(); } };
 
             const exportCSV = () => {
                 const headers = ['วันที่', 'ประเภท', 'หมวดหมู่', 'บัญชี', 'จำนวนเงิน'];
@@ -572,6 +593,7 @@
                                     </div>
                                 );
                             })}
+                            {transactions.length === 0 && <div className="text-center py-4 text-slate-400 text-xs italic">ยังไม่มีการบันทึกรายการ</div>}
                         </div>
                     </div>
                 </div>
@@ -653,6 +675,8 @@
                             <div className="flex items-center justify-between text-xs bg-black/20 p-3 rounded-xl backdrop-blur-sm border border-white/10"><span className="text-indigo-100">รวมสภาพคล่อง</span><span className="font-bold text-white text-sm">฿ {liquidAssets.toLocaleString()}</span></div>
                         </div>
 
+                        {accounts.length === 0 && <div className="text-center py-10 bg-white rounded-3xl border border-slate-100 shadow-sm"><i className="fa-solid fa-wallet text-4xl text-slate-300 mb-3 block"></i><p className="text-slate-500 font-medium">ยังไม่มีบัญชี</p><p className="text-xs text-slate-400 mt-1">เพิ่มบัญชีเพื่อเริ่มต้นจัดการการเงิน</p></div>}
+
                         {Object.keys(groupedAccounts).map(type => {
                             if (groupedAccounts[type].length === 0) return null;
                             const subTotal = groupedAccounts[type].reduce((sum, acc) => sum + acc.balance, 0);
@@ -719,6 +743,7 @@
                             </div>
                         );
                     })}
+                    {goals.length === 0 && <div className="text-center py-10 bg-white rounded-3xl border border-slate-100 shadow-sm"><i className="fa-solid fa-bullseye text-4xl text-slate-300 mb-3 block"></i><p className="text-slate-500 font-medium">ยังไม่มีเป้าหมาย</p><p className="text-xs text-slate-400 mt-1">สร้างเป้าหมายเพื่อแรงบันดาลใจในการออม</p></div>}
                 </div>
             );
 
