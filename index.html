@@ -13,12 +13,17 @@
     
     <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+    
     <script>window.react = window.React;</script>
+    
     <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/react-is@18.2.0/umd/react-is.production.min.js"></script>
     <script src="https://unpkg.com/recharts@2.1.12/umd/Recharts.js"></script>
+    
     <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
@@ -36,7 +41,7 @@
         const { useState, useMemo, useEffect } = React;
         const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } = window.Recharts;
 
-        // --- CONSTANTS ---
+        // --- CONSTANTS & MOCK DATA ---
         const BUDGET_GROUPS = [
             { id: 'b_food', name: 'อาหาร & เครื่องดื่ม', icon: '🍔', colorClass: 'bg-rose-500', color: '#f43f5e' },
             { id: 'b_housing', name: 'ที่อยู่อาศัย & บิล', icon: '🏠', colorClass: 'bg-blue-500', color: '#3b82f6' },
@@ -189,7 +194,7 @@
             { id: 'g12', icon: '🎯', color: 'bg-indigo-500', label: 'เป้าหมายทั่วไป' },
         ];
 
-        // เคลียร์ข้อมูล Mockup เริ่มต้น
+        // ว่างเปล่าเพื่อเริ่มต้นใหม่
         const initialAccounts = [];
         const initialTransactions = [];
 
@@ -213,6 +218,7 @@
             const [transactionType, setTransactionType] = useState('expense');
             const [selectedCategoryId, setSelectedCategoryId] = useState('e_groceries');
             const [isRecurringTx, setIsRecurringTx] = useState(false);
+            const [isRecurringEndOfMonth, setIsRecurringEndOfMonth] = useState(false);
             const [recurringDay, setRecurringDay] = useState(new Date().getDate());
 
             const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
@@ -266,7 +272,6 @@
                 };
                 window.addEventListener('beforeinstallprompt', handler);
 
-                // หากรีเฟรชหน้าเว็บ อาจเกิดปัญหา cache เก่าค้าง เราเช็กว่ามีข้อมูลจริงไหม
                 const checkData = localStorage.getItem('wf_accounts');
                 if (checkData) {
                     try {
@@ -292,7 +297,10 @@
                     const newRecurrings = recurrings.map(r => {
                         if (r.lastProcessedMonth !== realCurrentMonthStr) {
                             const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-                            const triggerDay = Math.min(r.recurringDay || 1, lastDayOfMonth);
+                            
+                            // ถ้าผู้ใช้ตั้งค่าให้หักวันสิ้นเดือน (-1) ก็ใช้วันสุดท้ายของเดือนนั้นเลย
+                            const triggerDay = r.recurringDay === -1 ? lastDayOfMonth : Math.min(r.recurringDay || 1, lastDayOfMonth);
+                            
                             const targetDate = new Date(today.getFullYear(), today.getMonth(), triggerDay);
                             targetDate.setHours(0,0,0,0);
                             
@@ -399,7 +407,12 @@
                     alert('กรุณาเพิ่มบัญชีก่อนทำรายการครับ');
                     return;
                 }
-                setTransactionType('expense'); setSelectedCategoryId('e_groceries'); setIsRecurringTx(false); setRecurringDay(new Date().getDate()); setIsAddModalOpen(true);
+                setTransactionType('expense'); 
+                setSelectedCategoryId('e_groceries'); 
+                setIsRecurringTx(false); 
+                setIsRecurringEndOfMonth(false);
+                setRecurringDay(new Date().getDate()); 
+                setIsAddModalOpen(true);
             };
 
             const handleAddTransaction = (e) => {
@@ -434,8 +447,13 @@
                         const today = new Date();
                         const realCurrentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
                         const newRec = {
-                            id: Date.now() + 1, type: transactionType, amount, categoryId: selectedCategoryId, accountId,
-                            recurringDay: parseInt(recurringDay) || 1, lastProcessedMonth: realCurrentMonthStr
+                            id: Date.now() + 1, 
+                            type: transactionType, 
+                            amount, 
+                            categoryId: selectedCategoryId, 
+                            accountId,
+                            recurringDay: isRecurringEndOfMonth ? -1 : (parseInt(recurringDay) || 1), 
+                            lastProcessedMonth: realCurrentMonthStr
                         };
                         setRecurrings([...recurrings, newRec]);
                     }
@@ -798,29 +816,44 @@
                                     {transactionType !== 'transfer' && (
                                         <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50 mt-4 space-y-3">
                                             <div className="flex items-center justify-between">
-                                                <label className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                                                <label className="text-xs font-bold text-slate-700 flex items-center gap-2 cursor-pointer">
                                                     <i className="fa-solid fa-clock-rotate-left text-indigo-500"></i> ตั้งเป็นรายการประจำ (รายเดือน)
                                                 </label>
                                                 <input 
                                                     type="checkbox" 
-                                                    name="isRecurring" 
                                                     checked={isRecurringTx}
                                                     onChange={(e) => setIsRecurringTx(e.target.checked)}
                                                     className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" 
                                                 />
                                             </div>
                                             {isRecurringTx && (
-                                                <div className="flex items-center justify-between pt-2 border-t border-indigo-100/50 animate-in fade-in">
-                                                    <span className="text-xs text-slate-500">บันทึกอัตโนมัติทุกๆ วันที่</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <input 
-                                                            type="number" 
-                                                            name="recurringDay"
-                                                            value={recurringDay}
-                                                            onChange={(e) => setRecurringDay(Math.min(31, Math.max(1, parseInt(e.target.value) || 1)))}
-                                                            min="1" max="31" 
-                                                            className="w-16 p-1.5 text-center bg-white border border-indigo-200 rounded-lg text-sm font-bold focus:outline-none focus:border-indigo-500"
-                                                        />
+                                                <div className="flex flex-col gap-2 pt-2 border-t border-indigo-100/50 animate-in fade-in">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs text-slate-500">บันทึกอัตโนมัติทุกๆ</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <label className="text-xs flex items-center gap-1 cursor-pointer font-bold text-indigo-700 bg-white px-2 py-1.5 rounded border border-indigo-200">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={isRecurringEndOfMonth} 
+                                                                    onChange={(e) => setIsRecurringEndOfMonth(e.target.checked)} 
+                                                                    className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 mr-1" 
+                                                                />
+                                                                วันสิ้นเดือน
+                                                            </label>
+                                                            {!isRecurringEndOfMonth && (
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-xs text-slate-500">วันที่</span>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        name="recurringDay"
+                                                                        value={recurringDay}
+                                                                        onChange={(e) => setRecurringDay(Math.min(31, Math.max(1, parseInt(e.target.value) || 1)))}
+                                                                        min="1" max="31" 
+                                                                        className="w-12 p-1 text-center bg-white border border-indigo-200 rounded text-sm font-bold focus:outline-none focus:border-indigo-500"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
@@ -874,7 +907,7 @@
                                                     <button onClick={() => handleDeleteRecurring(r.id)} className="w-8 h-8 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"><i className="fa-solid fa-trash-can text-xs"></i></button>
                                                 </div>
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-xs font-medium text-slate-500"><i className="fa-regular fa-calendar text-indigo-400"></i> ทุกวันที่ <strong className="text-slate-700">{r.recurringDay}</strong> ของเดือน</span>
+                                                    <span className="text-xs font-medium text-slate-500"><i className="fa-regular fa-calendar text-indigo-400"></i> ทุก{r.recurringDay === -1 ? <strong className="text-slate-700">วันสิ้นเดือน</strong> : <span>วันที่ <strong className="text-slate-700">{r.recurringDay}</strong> ของเดือน</span>}</span>
                                                     <span className={`font-bold text-sm ${r.type === 'income' ? 'text-green-600' : 'text-rose-600'}`}>฿ {r.amount.toLocaleString()}</span>
                                                 </div>
                                             </div>
