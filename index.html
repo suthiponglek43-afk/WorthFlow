@@ -9,21 +9,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="WorthFlow">
     <meta name="theme-color" content="#4f46e5">
+    
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon.png" type="image/png">
+    <link rel="apple-touch-icon" href="icon.png">
     
     <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
-    
     <script>window.react = window.React;</script>
-    
     <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/react-is@18.2.0/umd/react-is.production.min.js"></script>
     <script src="https://unpkg.com/recharts@2.1.12/umd/Recharts.js"></script>
-    
     <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
@@ -194,7 +192,7 @@
             { id: 'g12', icon: '🎯', color: 'bg-indigo-500', label: 'เป้าหมายทั่วไป' },
         ];
 
-        // ว่างเปล่าเพื่อเริ่มต้นใหม่
+        // ว่างเปล่าเพื่อเริ่มต้นใหม่ (Clean Slate)
         const initialAccounts = [];
         const initialTransactions = [];
 
@@ -252,25 +250,17 @@
             useEffect(() => { localStorage.setItem('wf_goals', JSON.stringify(goals)); }, [goals]);
             useEffect(() => { localStorage.setItem('wf_recurrings', JSON.stringify(recurrings)); }, [recurrings]);
 
-            // PWA Install Prompt & Manifest Setup
+            // PWA Install Prompt & Load Data Check
             useEffect(() => {
-                const metaTags = [
-                    { name: 'apple-mobile-web-app-capable', content: 'yes' },
-                    { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
-                    { name: 'apple-mobile-web-app-title', content: 'WorthFlow' },
-                    { name: 'theme-color', content: '#f8fafc' }
-                ];
-                metaTags.forEach(({ name, content }) => {
-                    let tag = document.querySelector(`meta[name="${name}"]`);
-                    if (!tag) { tag = document.createElement('meta'); tag.name = name; document.head.appendChild(tag); }
-                    tag.content = content;
-                });
-
                 const handler = (e) => { 
                     e.preventDefault(); setDeferredPrompt(e); setIsInstallable(true); 
                     if (!sessionStorage.getItem('wf_install_dismissed')) setShowInstallBanner(true);
                 };
                 window.addEventListener('beforeinstallprompt', handler);
+
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('sw.js').catch(() => {});
+                }
 
                 const checkData = localStorage.getItem('wf_accounts');
                 if (checkData) {
@@ -297,8 +287,6 @@
                     const newRecurrings = recurrings.map(r => {
                         if (r.lastProcessedMonth !== realCurrentMonthStr) {
                             const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-                            
-                            // ถ้าผู้ใช้ตั้งค่าให้หักวันสิ้นเดือน (-1) ก็ใช้วันสุดท้ายของเดือนนั้นเลย
                             const triggerDay = r.recurringDay === -1 ? lastDayOfMonth : Math.min(r.recurringDay || 1, lastDayOfMonth);
                             
                             const targetDate = new Date(today.getFullYear(), today.getMonth(), triggerDay);
@@ -403,16 +391,8 @@
             const changeMonth = (offset) => { const newDate = new Date(selectedDate); newDate.setMonth(newDate.getMonth() + offset); setSelectedDate(newDate); };
 
             const openAddTransactionModal = () => {
-                if(accounts.length === 0) {
-                    alert('กรุณาเพิ่มบัญชีก่อนทำรายการครับ');
-                    return;
-                }
-                setTransactionType('expense'); 
-                setSelectedCategoryId('e_groceries'); 
-                setIsRecurringTx(false); 
-                setIsRecurringEndOfMonth(false);
-                setRecurringDay(new Date().getDate()); 
-                setIsAddModalOpen(true);
+                if(accounts.length === 0) { alert('กรุณาเพิ่มบัญชีก่อนทำรายการครับ'); return; }
+                setTransactionType('expense'); setSelectedCategoryId('e_groceries'); setIsRecurringTx(false); setIsRecurringEndOfMonth(false); setRecurringDay(new Date().getDate()); setIsAddModalOpen(true);
             };
 
             const handleAddTransaction = (e) => {
@@ -447,13 +427,8 @@
                         const today = new Date();
                         const realCurrentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
                         const newRec = {
-                            id: Date.now() + 1, 
-                            type: transactionType, 
-                            amount, 
-                            categoryId: selectedCategoryId, 
-                            accountId,
-                            recurringDay: isRecurringEndOfMonth ? -1 : (parseInt(recurringDay) || 1), 
-                            lastProcessedMonth: realCurrentMonthStr
+                            id: Date.now() + 1, type: transactionType, amount, categoryId: selectedCategoryId, accountId,
+                            recurringDay: isRecurringEndOfMonth ? -1 : (parseInt(recurringDay) || 1), lastProcessedMonth: realCurrentMonthStr
                         };
                         setRecurrings([...recurrings, newRec]);
                     }
