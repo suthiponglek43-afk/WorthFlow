@@ -39,7 +39,7 @@
         const { useState, useMemo, useEffect } = React;
         const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } = window.Recharts;
 
-        // --- CONSTANTS & MOCK DATA ---
+        // --- CONSTANTS ---
         const BUDGET_GROUPS = [
             { id: 'b_food', name: 'อาหาร & เครื่องดื่ม', icon: '🍔', colorClass: 'bg-rose-500', color: '#f43f5e' },
             { id: 'b_housing', name: 'ที่อยู่อาศัย & บิล', icon: '🏠', colorClass: 'bg-blue-500', color: '#3b82f6' },
@@ -192,7 +192,7 @@
             { id: 'g12', icon: '🎯', color: 'bg-indigo-500', label: 'เป้าหมายทั่วไป' },
         ];
 
-        // ว่างเปล่าเพื่อเริ่มต้นใหม่ (Clean Slate)
+        // ว่างเปล่าเพื่อเริ่มต้นใหม่
         const initialAccounts = [];
         const initialTransactions = [];
 
@@ -391,22 +391,38 @@
             const changeMonth = (offset) => { const newDate = new Date(selectedDate); newDate.setMonth(newDate.getMonth() + offset); setSelectedDate(newDate); };
 
             const openAddTransactionModal = () => {
-                if(accounts.length === 0) { alert('กรุณาเพิ่มบัญชีก่อนทำรายการครับ'); return; }
-                setTransactionType('expense'); setSelectedCategoryId('e_groceries'); setIsRecurringTx(false); setIsRecurringEndOfMonth(false); setRecurringDay(new Date().getDate()); setIsAddModalOpen(true);
+                if(accounts.length === 0) {
+                    alert('กรุณาเพิ่มบัญชีก่อนทำรายการครับ');
+                    return;
+                }
+                setTransactionType('expense'); 
+                setSelectedCategoryId('e_groceries'); 
+                setIsRecurringTx(false); 
+                setIsRecurringEndOfMonth(false);
+                setRecurringDay(new Date().getDate()); 
+                setIsAddModalOpen(true);
             };
 
             const handleAddTransaction = (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const amount = parseFloat(formData.get('amount'));
-                const accountId = parseInt(formData.get('accountId'));
 
-                if (!amount || !accountId) return;
+                // เช็คแค่จำนวนเงินก่อน
+                if (!amount) return;
 
                 if (transactionType === 'transfer') {
                     const fromAccountId = parseInt(formData.get('fromAccountId'));
                     const toAccountId = parseInt(formData.get('toAccountId'));
-                    if (fromAccountId === toAccountId) { alert('ไม่สามารถโอนเข้าบัญชีเดียวกันได้'); return; }
+                    
+                    // เช็คว่าเลือกบัญชีต้นทาง-ปลายทางครบไหม
+                    if (!fromAccountId || !toAccountId) return;
+                    
+                    if (fromAccountId === toAccountId) { 
+                        alert('ไม่สามารถโอนเข้าบัญชีเดียวกันได้'); 
+                        return; 
+                    }
+                    
                     const newTx = { id: Date.now(), type: 'transfer', amount, fromAccountId, toAccountId, date: new Date().toISOString() };
                     setTransactions([newTx, ...transactions]);
                     setAccounts(accounts.map(acc => {
@@ -415,7 +431,11 @@
                         return acc;
                     }));
                 } else {
-                    if (!selectedCategoryId) return;
+                    const accountId = parseInt(formData.get('accountId'));
+                    
+                    // รายรับ-รายจ่าย ต้องมี accountId และหมวดหมู่
+                    if (!accountId || !selectedCategoryId) return;
+                    
                     const newTx = { id: Date.now(), type: transactionType, amount, categoryId: selectedCategoryId, accountId, date: new Date().toISOString() };
                     setTransactions([newTx, ...transactions]);
                     setAccounts(accounts.map(acc => {
@@ -427,8 +447,13 @@
                         const today = new Date();
                         const realCurrentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
                         const newRec = {
-                            id: Date.now() + 1, type: transactionType, amount, categoryId: selectedCategoryId, accountId,
-                            recurringDay: isRecurringEndOfMonth ? -1 : (parseInt(recurringDay) || 1), lastProcessedMonth: realCurrentMonthStr
+                            id: Date.now() + 1, 
+                            type: transactionType, 
+                            amount, 
+                            categoryId: selectedCategoryId, 
+                            accountId,
+                            recurringDay: isRecurringEndOfMonth ? -1 : (parseInt(recurringDay) || 1), 
+                            lastProcessedMonth: realCurrentMonthStr
                         };
                         setRecurrings([...recurrings, newRec]);
                     }
